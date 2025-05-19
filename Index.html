@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orçamento Simples</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+      background: #f4f4f4;
+    }
+    h2, h3 {
+      text-align: center;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      box-sizing: border-box;
+    }
+    .section {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #logo-preview {
+      display: block;
+      margin: 10px auto;
+      max-width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Orçamento Simples</h2>
+
+  <div class="section">
+    <h3>Informações da Empresa</h3>
+    <input type="text" id="empresa" placeholder="Nome da empresa">
+    <input type="text" id="cnpj" placeholder="CNPJ">
+    <input type="file" id="logo" accept="image/*">
+    <img id="logo-preview" src="" alt="Prévia da Logo" hidden>
+  </div>
+
+  <div class="section">
+    <h3>Serviços</h3>
+    <div id="servicos-container"></div>
+    <button type="button" onclick="adicionarServico()">Adicionar Serviço</button>
+  </div>
+
+  <div class="section">
+    <h3>Missão, Visão e Valores</h3>
+    <textarea id="missao" placeholder="Missão..."></textarea>
+    <textarea id="visao" placeholder="Visão..."></textarea>
+    <textarea id="valores" placeholder="Valores (um por linha)..."></textarea>
+  </div>
+
+  <div class="section">
+    <h3>Formas de Pagamento</h3>
+    <textarea id="pagamento" placeholder="Ex: 30% na assinatura, 40% durante, 30% na entrega..."></textarea>
+  </div>
+
+  <div class="section">
+    <h3>Informações Adicionais</h3>
+    <textarea id="info" placeholder="Observações ou detalhes adicionais..."></textarea>
+  </div>
+
+  <button onclick="gerarPDF()">Gerar Orçamento em PDF</button>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const servicosContainer = document.getElementById('servicos-container');
+    const logoInput = document.getElementById('logo');
+    const logoPreview = document.getElementById('logo-preview');
+    let logoData = "";
+
+    logoInput.addEventListener('change', () => {
+      const file = logoInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          logoData = reader.result;
+          logoPreview.src = logoData;
+          logoPreview.hidden = false;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function adicionarServico() {
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <input type="text" placeholder="Nome do serviço">
+        <input type="number" placeholder="Custo Material (R$)" step="0.01">
+        <input type="number" placeholder="Custo Mão de Obra (R$)" step="0.01">
+        <hr>
+      `;
+      servicosContainer.appendChild(div);
+    }
+
+    async function gerarPDF() {
+      const {{ jsPDF }} = window.jspdf;
+      const doc = new jsPDF();
+
+      const empresa = document.getElementById('empresa').value;
+      const cnpj = document.getElementById('cnpj').value;
+      const missao = document.getElementById('missao').value;
+      const visao = document.getElementById('visao').value;
+      const valores = document.getElementById('valores').value;
+      const pagamento = document.getElementById('pagamento').value;
+      const info = document.getElementById('info').value;
+
+      let y = 10;
+      doc.setFontSize(14);
+      doc.text(`Orçamento - ${empresa}`, 10, y);
+      y += 10;
+      doc.setFontSize(10);
+      doc.text(`CNPJ: ${cnpj}`, 10, y);
+      y += 10;
+
+      if (logoData) {
+        const img = new Image();
+        img.src = logoData;
+        await new Promise(r => img.onload = r);
+        doc.addImage(img, 'PNG', 150, 10, 40, 20);
+      }
+
+      y += 10;
+      doc.text("Serviços:", 10, y);
+      y += 10;
+
+      servicosContainer.querySelectorAll('div').forEach(div => {
+        const inputs = div.querySelectorAll('input');
+        if (inputs.length === 3) {
+          const nome = inputs[0].value;
+          const mat = parseFloat(inputs[1].value || 0);
+          const mao = parseFloat(inputs[2].value || 0);
+          const total = mat + mao;
+          doc.text(`- ${nome}: Material R$ ${mat.toFixed(2)}, Mão de Obra R$ ${mao.toFixed(2)} (Total R$ ${total.toFixed(2)})`, 10, y);
+          y += 10;
+        }
+      });
+
+      doc.text("\nMissão:", 10, y);
+      y += 10;
+      doc.text(missao, 10, y);
+      y += 10;
+
+      doc.text("\nVisão:", 10, y);
+      y += 10;
+      doc.text(visao, 10, y);
+      y += 10;
+
+      doc.text("\nValores:", 10, y);
+      y += 10;
+      doc.text(valores, 10, y);
+      y += 10;
+
+      doc.text("\nFormas de Pagamento:", 10, y);
+      y += 10;
+      doc.text(pagamento, 10, y);
+      y += 10;
+
+      doc.text("\nInformações Adicionais:", 10, y);
+      y += 10;
+      doc.text(info, 10, y);
+
+      doc.save("orcamento.pdf");
+    }
+  </script>
+</body>
+</html>
